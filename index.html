@@ -10,185 +10,205 @@
     canvas{display:block}
     #info{
       position:absolute;top:18px;left:50%;transform:translateX(-50%);
-      color:#ccc;font-family:-apple-system,sans-serif;font-size:14px;
+      color:#eee;font-family:-apple-system,sans-serif;font-size:15px;
       pointer-events:none;white-space:nowrap;
-      background:rgba(0,0,0,.4);padding:6px 16px;border-radius:20px;
+      background:rgba(0,0,0,.5);padding:7px 18px;border-radius:20px;
     }
     #info b{color:#a0c4ff}
   </style>
 </head>
 <body>
   <div id="info"><b>Glisser</b> pour tourner &bull; <b>Pincer</b> pour zoomer</div>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
   <script>
-  /* ── Renderer ───────────────────────────────────── */
+
+  /* ── Renderer ── */
   const renderer = new THREE.WebGLRenderer({antialias:true});
-  renderer.setPixelRatio(devicePixelRatio);
-  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(innerWidth,innerHeight);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   document.body.appendChild(renderer.domElement);
 
-  const scene  = new THREE.Scene();
+  const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1a1a2e);
-  scene.fog = new THREE.Fog(0x1a1a2e, 20, 40);
 
-  const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 200);
+  camera.position.set(0, 3, 9);
+  camera.lookAt(0, 2, 0);
 
-  /* ── Simple orbit (mouse + touch) ───────────────── */
-  let theta = 0.3, phi = 1.15, radius = 11;
-  let tTheta = theta, tPhi = phi, tRadius = radius; // targets for damping
-  const TX = 0, TY = 1.6, TZ = 0;
+  /* ── Lights ── */
+  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+  const dir = new THREE.DirectionalLight(0xffeedd, 1.8);
+  dir.position.set(5,10,5);
+  dir.castShadow = true;
+  scene.add(dir);
+  scene.add(Object.assign(new THREE.DirectionalLight(0x6688ff,.5),{position: new THREE.Vector3(-4,4,-4)}));
 
-  function applyCamera() {
-    camera.position.set(
-      TX + radius * Math.sin(phi) * Math.sin(theta),
-      TY + radius * Math.cos(phi),
-      TZ + radius * Math.sin(phi) * Math.cos(theta)
-    );
-    camera.lookAt(TX, TY, TZ);
-  }
-  applyCamera();
+  /* ── Materials ── */
+  const fur    = new THREE.MeshLambertMaterial({color:0xd4925a});
+  const belly  = new THREE.MeshLambertMaterial({color:0xf5d5aa});
+  const dark   = new THREE.MeshLambertMaterial({color:0x8b5c2a});
+  const eyeW   = new THREE.MeshLambertMaterial({color:0xffffff});
+  const iris   = new THREE.MeshLambertMaterial({color:0x33dd99});
+  const pupil  = new THREE.MeshLambertMaterial({color:0x111111});
+  const nose   = new THREE.MeshLambertMaterial({color:0xff7799});
+  const whi    = new THREE.MeshLambertMaterial({color:0xffffff});
+  const pad    = new THREE.MeshLambertMaterial({color:0xffaaaa});
 
-  const el = renderer.domElement;
-  let dragging = false, lx = 0, ly = 0;
-
-  el.addEventListener('mousedown', e => { dragging=true; lx=e.clientX; ly=e.clientY; });
-  window.addEventListener('mouseup',   () => dragging=false);
-  window.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    tTheta -= (e.clientX-lx)*0.008;
-    tPhi    = Math.max(0.15, Math.min(Math.PI-0.15, tPhi-(e.clientY-ly)*0.008));
-    lx=e.clientX; ly=e.clientY;
-  });
-  el.addEventListener('wheel', e => {
-    tRadius = Math.max(4, Math.min(22, tRadius + e.deltaY*0.015));
-  }, {passive:true});
-
-  // Touch
-  let lastDist = 0;
-  el.addEventListener('touchstart', e => {
-    e.preventDefault();
-    if (e.touches.length===1){ dragging=true; lx=e.touches[0].clientX; ly=e.touches[0].clientY; }
-    if (e.touches.length===2){
-      dragging=false;
-      lastDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
-                            e.touches[0].clientY-e.touches[1].clientY);
-    }
-  },{passive:false});
-  el.addEventListener('touchmove', e => {
-    e.preventDefault();
-    if (e.touches.length===1 && dragging){
-      tTheta -= (e.touches[0].clientX-lx)*0.008;
-      tPhi    = Math.max(0.15, Math.min(Math.PI-0.15, tPhi-(e.touches[0].clientY-ly)*0.008));
-      lx=e.touches[0].clientX; ly=e.touches[0].clientY;
-    }
-    if (e.touches.length===2){
-      const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
-                           e.touches[0].clientY-e.touches[1].clientY);
-      tRadius = Math.max(4, Math.min(22, tRadius-(d-lastDist)*0.06));
-      lastDist=d;
-    }
-  },{passive:false});
-  el.addEventListener('touchend', () => dragging=false);
-
-  /* ── Lights ─────────────────────────────────────── */
-  scene.add(new THREE.AmbientLight(0x404060, 1.4));
-  const sun = new THREE.DirectionalLight(0xfff0e0, 2.5);
-  sun.position.set(5,10,6); sun.castShadow=true;
-  sun.shadow.mapSize.set(2048,2048);
-  Object.assign(sun.shadow.camera,{left:-8,right:8,top:8,bottom:-8,near:.5,far:40});
-  scene.add(sun);
-  const fill = new THREE.DirectionalLight(0x8888ff,.6); fill.position.set(-4,3,-4); scene.add(fill);
-  const rim  = new THREE.PointLight(0xff8844,1.0,22);   rim.position.set(-3,6,-5);  scene.add(rim);
-
-  /* ── Materials ──────────────────────────────────── */
-  const M = (c,r=.85) => new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:0});
-  const mFur=M(0xd4925a), mBelly=M(0xf5d5aa,.9), mDark=M(0x8b5c2a,.9);
-  const mEyeW=M(0xf0f8ff,.3), mIris=M(0x22cc88,.3);
-  const mPupil=new THREE.MeshStandardMaterial({color:0x111111,roughness:.2,metalness:.1});
-  const mNose=M(0xff7799,.6), mWhi=M(0xffffff,1), mPaw=M(0xffaaaa,.8);
-
-  /* ── Cat ────────────────────────────────────────── */
+  /* ── Cat group ── */
   const cat = new THREE.Group();
   scene.add(cat);
 
-  function add(geo,mat,{x=0,y=0,z=0,rx=0,ry=0,rz=0,sx=1,sy=1,sz=1}={}){
+  function mk(geo,mat,x,y,z,sx,sy,sz,rx,ry,rz){
     const m=new THREE.Mesh(geo,mat);
-    m.position.set(x,y,z); m.rotation.set(rx,ry,rz); m.scale.set(sx,sy,sz);
-    m.castShadow=true; m.receiveShadow=true; cat.add(m); return m;
+    m.position.set(x||0,y||0,z||0);
+    m.scale.set(sx||1,sy||1,sz||1);
+    m.rotation.set(rx||0,ry||0,rz||0);
+    m.castShadow=true;
+    cat.add(m);
+    return m;
   }
 
+  const S  = (r,w,h) => new THREE.SphereGeometry(r,w||24,h||18);
+  const Cy = (rt,rb,h,s) => new THREE.CylinderGeometry(rt,rb,h,s||16);
+  const Co = (r,h,s) => new THREE.ConeGeometry(r,h,s||4);
+
   // Body
-  add(new THREE.SphereGeometry(1.1,32,24),   mFur,   {y:1.4,sy:.85,sz:1.3});
-  add(new THREE.SphereGeometry(.7,24,20),    mBelly, {y:1.3,z:.95,sx:.9,sy:.65,sz:.35});
+  mk(S(.95),fur,  0,1.2,0,  1.05,.8,1.3);
+  mk(S(.6), belly,0,1.1,.75, .9,.6,.3);
+
   // Neck
-  add(new THREE.CylinderGeometry(.42,.52,.5,20), mFur, {y:2.3});
+  mk(Cy(.38,.45,.45),fur, 0,2.1,0);
+
   // Head
-  const head=add(new THREE.SphereGeometry(.75,32,24), mFur, {y:3.0});
-  // Muzzle + nose
-  add(new THREE.SphereGeometry(.35,20,16), mBelly, {y:2.88,z:.60,sx:1.1,sy:.75,sz:.70});
-  add(new THREE.SphereGeometry(.085,12,10),mNose,  {y:2.98,z:.93,sx:1.2,sy:.80});
+  const head = mk(S(.7),fur, 0,2.75,0);
+
+  // Muzzle
+  mk(S(.32),belly, 0,2.63,.57, 1.05,.72,.65);
+
+  // Nose
+  mk(S(.07),nose, 0,2.72,.86, 1.1,.8,1);
+
   // Ears
   [-1,1].forEach(s=>{
-    add(new THREE.ConeGeometry(.28,.55,4), mFur,  {x:s*.45,y:3.6,z:-.12,rx:.10,rz:s*-.18});
-    add(new THREE.ConeGeometry(.16,.35,4), mNose, {x:s*.45,y:3.6,z:-.09,rx:.10,rz:s*-.18});
+    mk(Co(.25,.5,4),fur,   s*.38,3.27,-.1, 1,1,1, .1,0,s*-.15);
+    mk(Co(.14,.3,4),nose,  s*.38,3.27,-.08,1,1,1, .1,0,s*-.15);
   });
+
   // Eyes
   [-1,1].forEach(s=>{
-    add(new THREE.SphereGeometry(.155,20,16), mEyeW, {x:s*.27,y:3.08,z:.65});
-    add(new THREE.SphereGeometry(.120,18,14), mIris, {x:s*.27,y:3.08,z:.75});
-    add(new THREE.SphereGeometry(.080,12,10), mPupil,{x:s*.27,y:3.08,z:.80,sx:.35});
-    add(new THREE.SphereGeometry(.028,8,8),   mEyeW, {x:s*.27+.03,y:3.13,z:.84});
+    mk(S(.14),eyeW, s*.24,2.82,.6);
+    mk(S(.1), iris, s*.24,2.82,.7);
+    mk(S(.07),pupil,s*.24,2.82,.75, .32,1,1);
+    mk(S(.025),eyeW,s*.24+.025,2.86,.79);
   });
+
   // Whiskers
-  [[-1,-.22,.06],[-1,0,-.01],[-1,.22,-.08],[1,.22,.06],[1,0,-.01],[1,-.22,-.08]]
-    .forEach(([s,rz,dy])=>
-      add(new THREE.CylinderGeometry(.008,.004,.9,6),mWhi,{x:s*.55,y:2.9+dy,z:.7,rx:Math.PI/2,rz}));
-  // Legs
-  [[-0.55,.9,1],[.55,.9,1],[-.52,-.6,-1],[.52,-.6,-1]].forEach(([x,z,fb])=>{
-    add(new THREE.CapsuleGeometry(.2,.45,8,12), mFur, {x,y:.85,z,rx:fb*.15});
-    add(new THREE.SphereGeometry(.22,16,12),    mFur, {x,y:.28,z:z+fb*.10,sy:.70,sz:1.15});
-    add(new THREE.SphereGeometry(.13,12,10),    mPaw, {x,y:.15,z:z+fb*.15,sx:.9,sy:.40,sz:.90});
+  [[-1,-.2,.05],[-1,.0,-.01],[-1,.2,-.07],
+   [ 1,-.2,.05],[ 1,.0,-.01],[ 1,.2,-.07]]
+  .forEach(([s,rz,dy])=>{
+    const g=new THREE.CylinderGeometry(.006,.003,.8,5);
+    mk(g,whi,s*.5,2.65+dy,.65, 1,1,1, Math.PI/2,0,rz);
   });
-  // Tail
-  const tc=new THREE.CatmullRomCurve3([
-    new THREE.Vector3(.0,1.1,-1.25), new THREE.Vector3(-.5,1.6,-1.70),
-    new THREE.Vector3(-1.1,2.5,-1.40),new THREE.Vector3(-.9,3.2,-.80),
-    new THREE.Vector3(-.4,3.5,-.50)
-  ]);
-  const tail=add(new THREE.TubeGeometry(tc,24,.12,10,false),mFur);
-  add(new THREE.SphereGeometry(.18,14,10),mBelly,{x:-.4,y:3.5,z:-.5});
+
+  // Legs (cylinder + sphere paw)
+  [[-0.5,.8,1],[.5,.8,1],[-.48,-.55,-1],[.48,-.55,-1]]
+  .forEach(([x,z,fb])=>{
+    mk(Cy(.18,.2,.55),fur, x,.72,z, 1,1,1, fb*.12,0,0);
+    mk(S(.2),fur,           x,.24,z+fb*.08, 1,.65,1.1);
+    mk(S(.12),pad,          x,.14,z+fb*.12, .9,.38,.85);
+  });
+
+  // Tail (chain of cylinders)
+  const tPts=[
+    [0,1,-.9],[-.2,1.3,-1.2],[-.5,1.8,-1.4],
+    [-.85,2.4,-1.2],[-.8,3.0,-.8],[-.45,3.3,-.5]
+  ];
+  for(let i=0;i<tPts.length-1;i++){
+    const a=new THREE.Vector3(...tPts[i]);
+    const b=new THREE.Vector3(...tPts[i+1]);
+    const mid=new THREE.Vector3().addVectors(a,b).multiplyScalar(.5);
+    const len=a.distanceTo(b);
+    const r=.09-.012*i;
+    const seg=new THREE.Mesh(Cy(r,r+.015,len,10),fur);
+    seg.position.copy(mid);
+    seg.castShadow=true;
+    // orient along segment
+    const axis=new THREE.Vector3(0,1,0);
+    const dir2=new THREE.Vector3().subVectors(b,a).normalize();
+    seg.quaternion.setFromUnitVectors(axis,dir2);
+    cat.add(seg);
+  }
+  // tail tip
+  mk(S(.13),belly, -.45,3.3,-.5);
+
   // Stripes
-  [[1.65,.3,.20],[1.35,.4,.15],[1.05,.35,.10]].forEach(([y,z,rz])=>
-    add(new THREE.TorusGeometry(.82,.055,8,36,Math.PI*.7),mDark,{y,z,rz}));
+  [[1.45,.25,.18],[1.18,.3,.12],[.92,.28,.08]]
+  .forEach(([y,z,rz])=>{
+    mk(new THREE.TorusGeometry(.72,.045,6,32,Math.PI*.65),dark,0,y,z,1,1,1,0,0,rz);
+  });
 
-  /* ── Ground ─────────────────────────────────────── */
-  const gnd=new THREE.Mesh(new THREE.CircleGeometry(10,64),
-    new THREE.MeshStandardMaterial({color:0x23233a,roughness:.95}));
-  gnd.rotation.x=-Math.PI/2; gnd.receiveShadow=true; scene.add(gnd);
-  const grid=new THREE.GridHelper(20,20,0x333355,0x2a2a44);
-  grid.position.y=.01; scene.add(grid);
+  /* ── Ground ── */
+  const gnd=new THREE.Mesh(
+    new THREE.CircleGeometry(9,48),
+    new THREE.MeshLambertMaterial({color:0x23233a})
+  );
+  gnd.rotation.x=-Math.PI/2;
+  gnd.receiveShadow=true;
+  scene.add(gnd);
 
-  /* ── Animate ────────────────────────────────────── */
+  /* ── Simple orbit (mouse + touch) ── */
+  let theta=.3, phi=1.2, rad=9;
+  let tTh=theta, tPh=phi, tRad=rad;
+  function cam(){
+    camera.position.set(
+      rad*Math.sin(phi)*Math.sin(theta),
+      2+rad*Math.cos(phi),
+      rad*Math.sin(phi)*Math.cos(theta)
+    );
+    camera.lookAt(0,2,0);
+  }
+  cam();
+
+  const cv=renderer.domElement;
+  let drag=false,lx=0,ly=0,ld=0;
+  cv.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY;});
+  window.addEventListener('mouseup',()=>drag=false);
+  window.addEventListener('mousemove',e=>{
+    if(!drag)return;
+    tTh-=(e.clientX-lx)*.008; tPh=Math.max(.15,Math.min(Math.PI-.15,tPh-(e.clientY-ly)*.008));
+    lx=e.clientX;ly=e.clientY;
+  });
+  cv.addEventListener('wheel',e=>{tRad=Math.max(4,Math.min(20,tRad+e.deltaY*.015));},{passive:true});
+  cv.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    if(e.touches.length===1){drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;}
+    if(e.touches.length===2) ld=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  },{passive:false});
+  cv.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    if(e.touches.length===1&&drag){
+      tTh-=(e.touches[0].clientX-lx)*.008;
+      tPh=Math.max(.15,Math.min(Math.PI-.15,tPh-(e.touches[0].clientY-ly)*.008));
+      lx=e.touches[0].clientX;ly=e.touches[0].clientY;
+    }
+    if(e.touches.length===2){
+      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      tRad=Math.max(4,Math.min(20,tRad-(d-ld)*.05));ld=d;
+    }
+  },{passive:false});
+  cv.addEventListener('touchend',()=>drag=false);
+
+  /* ── Animate ── */
   const clock=new THREE.Clock();
   (function loop(){
     requestAnimationFrame(loop);
     const t=clock.getElapsedTime();
-
-    // Damping
-    const k=.12;
-    theta  += (tTheta -theta) *k;
-    phi    += (tPhi   -phi)   *k;
-    radius += (tRadius-radius)*k;
-    applyCamera();
-
-    // Idle animation
-    cat.scale.y = 1+Math.sin(t*1.4)*.012;
-    cat.scale.x = 1-Math.sin(t*1.4)*.006;
-    tail.rotation.y = Math.sin(t*.9)*.2;
-    head.rotation.y = Math.sin(t*.5)*.12;
-
+    const k=.1;
+    theta+=(tTh-theta)*k; phi+=(tPh-phi)*k; rad+=(tRad-rad)*k;
+    cam();
+    cat.position.y=Math.sin(t*1.2)*.04;
+    head.rotation.y=Math.sin(t*.6)*.1;
     renderer.render(scene,camera);
   })();
 
@@ -197,6 +217,7 @@
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth,innerHeight);
   });
+
   </script>
 </body>
 </html>
