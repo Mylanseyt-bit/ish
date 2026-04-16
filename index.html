@@ -1,300 +1,317 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
-  <title>Chat 3D</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{background:#1a1a2e;overflow:hidden;touch-action:none}
-    canvas{display:block}
-    #info{position:absolute;top:16px;left:50%;transform:translateX(-50%);
-      color:#ddd;font-family:-apple-system,sans-serif;font-size:14px;
-      background:rgba(0,0,0,.55);padding:6px 16px;border-radius:20px;
-      pointer-events:none;white-space:nowrap}
-    #info b{color:#a0c4ff}
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+<title>Chat 3D</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;overflow:hidden;touch-action:none;font-family:-apple-system,sans-serif}
+canvas{display:block}
+#hud{position:fixed;top:16px;left:50%;transform:translateX(-50%);
+  color:#fff;font-size:13px;background:rgba(0,0,0,.5);
+  padding:5px 14px;border-radius:16px;pointer-events:none;
+  white-space:nowrap;letter-spacing:.3px}
+#joyWrap{position:fixed;bottom:30px;left:30px;width:110px;height:110px;
+  border-radius:55px;background:rgba(255,255,255,.12);
+  border:2px solid rgba(255,255,255,.28);touch-action:none}
+#joyKnob{position:absolute;width:46px;height:46px;border-radius:23px;
+  background:rgba(255,255,255,.45);top:32px;left:32px;pointer-events:none}
+</style>
 </head>
 <body>
-  <div id="info"><b>1 doigt</b> tourner &bull; <b>2 doigts</b> zoomer</div>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
-  <script>
-
-  /* --- Textures (rapides : 800 traits max) --- */
-  function makeFur(sz) {
-    var cv = document.createElement('canvas'); cv.width = cv.height = sz;
-    var cx = cv.getContext('2d');
-    cx.fillStyle = '#7a6040'; cx.fillRect(0,0,sz,sz);
-    var bw = sz / 10;
-    for (var x = 0; x < sz; x += bw*2) {
-      var g = cx.createLinearGradient(x,0,x+bw,0);
-      g.addColorStop(0,   'rgba(18,9,2,0)');
-      g.addColorStop(0.3, 'rgba(18,9,2,0.58)');
-      g.addColorStop(0.7, 'rgba(18,9,2,0.58)');
-      g.addColorStop(1,   'rgba(18,9,2,0)');
-      cx.fillStyle = g; cx.fillRect(x,0,bw,sz);
-    }
-    for (var i = 0; i < 800; i++) {
-      var px = Math.random()*sz, py = Math.random()*sz;
-      var len = 3 + Math.random()*9;
-      var ang = -Math.PI/2 + (Math.random()-.5)*.9;
-      var a = (.05 + Math.random()*.25).toFixed(2);
-      cx.strokeStyle = 'rgba(14,7,1,'+a+')';
-      cx.lineWidth = .4 + Math.random()*1.4;
-      cx.beginPath(); cx.moveTo(px,py);
-      cx.lineTo(px+Math.cos(ang)*len, py+Math.sin(ang)*len); cx.stroke();
-    }
-    var t = new THREE.CanvasTexture(cv);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2,2); return t;
+<div id="hud">&#x1F43E; Déplace le chat avec le joystick</div>
+<div id="joyWrap"><div id="joyKnob"></div></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
+<script>
+/* ===== TEXTURES ===== */
+function furTex(sz){
+  var cv=document.createElement('canvas');cv.width=cv.height=sz;
+  var cx=cv.getContext('2d');
+  cx.fillStyle='#7a6040';cx.fillRect(0,0,sz,sz);
+  var bw=sz/10;
+  for(var x=0;x<sz;x+=bw*2){
+    var g=cx.createLinearGradient(x,0,x+bw,0);
+    g.addColorStop(0,'rgba(18,9,2,0)');g.addColorStop(.3,'rgba(18,9,2,.56)');
+    g.addColorStop(.7,'rgba(18,9,2,.56)');g.addColorStop(1,'rgba(18,9,2,0)');
+    cx.fillStyle=g;cx.fillRect(x,0,bw,sz);
   }
-
-  function makeBelly(sz) {
-    var cv = document.createElement('canvas'); cv.width = cv.height = sz;
-    var cx = cv.getContext('2d');
-    cx.fillStyle = '#c8aa70'; cx.fillRect(0,0,sz,sz);
-    for (var i = 0; i < 500; i++) {
-      var px = Math.random()*sz, py = Math.random()*sz;
-      var len = 2 + Math.random()*7;
-      var ang = -Math.PI/2 + (Math.random()-.5)*.7;
-      var a = (.03 + Math.random()*.15).toFixed(2);
-      cx.strokeStyle = 'rgba(140,95,35,'+a+')';
-      cx.lineWidth = .3 + Math.random()*1.1;
-      cx.beginPath(); cx.moveTo(px,py);
-      cx.lineTo(px+Math.cos(ang)*len, py+Math.sin(ang)*len); cx.stroke();
-    }
-    var t = new THREE.CanvasTexture(cv);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2,2); return t;
+  for(var i=0;i<700;i++){
+    var px=Math.random()*sz,py=Math.random()*sz;
+    cx.strokeStyle='rgba(14,7,1,'+(.05+Math.random()*.22).toFixed(2)+')';
+    cx.lineWidth=.4+Math.random()*1.3;
+    var ang=-Math.PI/2+(Math.random()-.5)*.9,len=3+Math.random()*9;
+    cx.beginPath();cx.moveTo(px,py);
+    cx.lineTo(px+Math.cos(ang)*len,py+Math.sin(ang)*len);cx.stroke();
   }
-
-  function makeBump(sz) {
-    var cv = document.createElement('canvas'); cv.width = cv.height = sz;
-    var cx = cv.getContext('2d');
-    cx.fillStyle = '#888'; cx.fillRect(0,0,sz,sz);
-    for (var i = 0; i < 600; i++) {
-      var x = Math.random()*sz, y = Math.random()*sz, r = .5+Math.random()*2;
-      var v = Math.floor(85+Math.random()*90);
-      cx.fillStyle = 'rgb('+v+','+v+','+v+')';
-      cx.beginPath(); cx.arc(x,y,r,0,Math.PI*2); cx.fill();
-    }
-    return new THREE.CanvasTexture(cv);
+  var t=new THREE.CanvasTexture(cv);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,2);return t;
+}
+function bellyTex(sz){
+  var cv=document.createElement('canvas');cv.width=cv.height=sz;
+  var cx=cv.getContext('2d');
+  cx.fillStyle='#c8aa70';cx.fillRect(0,0,sz,sz);
+  for(var i=0;i<400;i++){
+    var px=Math.random()*sz,py=Math.random()*sz;
+    cx.strokeStyle='rgba(140,95,35,'+(.03+Math.random()*.14).toFixed(2)+')';
+    cx.lineWidth=.3+Math.random()*1.1;
+    var ang=-Math.PI/2+(Math.random()-.5)*.7,len=2+Math.random()*7;
+    cx.beginPath();cx.moveTo(px,py);
+    cx.lineTo(px+Math.cos(ang)*len,py+Math.sin(ang)*len);cx.stroke();
   }
+  var t=new THREE.CanvasTexture(cv);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,2);return t;
+}
+var tFur=furTex(256),tBelly=bellyTex(128);
 
-  var tFur   = makeFur(256);
-  var tBelly = makeBelly(128);
-  var tBump  = makeBump(128);
+/* ===== RENDERER ===== */
+var R=new THREE.WebGLRenderer({antialias:true});
+R.setPixelRatio(Math.min(devicePixelRatio,2));
+R.setSize(innerWidth,innerHeight);
+R.shadowMap.enabled=true;
+R.shadowMap.type=THREE.PCFSoftShadowMap;
+R.outputEncoding=THREE.sRGBEncoding;
+R.toneMapping=THREE.ACESFilmicToneMapping;
+R.toneMappingExposure=1.2;
+document.body.appendChild(R.domElement);
 
-  /* --- Renderer --- */
-  var R = new THREE.WebGLRenderer({ antialias: true });
-  R.setPixelRatio(Math.min(devicePixelRatio, 2));
-  R.setSize(innerWidth, innerHeight);
-  R.shadowMap.enabled = true;
-  R.shadowMap.type = THREE.PCFSoftShadowMap;
-  R.outputEncoding = THREE.sRGBEncoding;
-  R.toneMapping = THREE.ACESFilmicToneMapping;
-  R.toneMappingExposure = 1.3;
-  document.body.appendChild(R.domElement);
+var scene=new THREE.Scene();
+scene.background=new THREE.Color(0x87ceeb);
+scene.fog=new THREE.Fog(0x87ceeb,25,60);
+var cam=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,200);
 
-  var scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1a1a2e);
-  scene.fog = new THREE.FogExp2(0x1a1a2e, .03);
-  var cam = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, .1, 100);
+/* ===== LUMIERES ===== */
+scene.add(new THREE.HemisphereLight(0xffeedd,0x334422,1.0));
+var sun=new THREE.DirectionalLight(0xfff8e0,2.0);
+sun.position.set(10,20,10);sun.castShadow=true;
+sun.shadow.mapSize.width=2048;sun.shadow.mapSize.height=2048;
+sun.shadow.camera.left=-30;sun.shadow.camera.right=30;
+sun.shadow.camera.top=30;sun.shadow.camera.bottom=-30;
+sun.shadow.camera.far=80;sun.shadow.bias=-.002;
+scene.add(sun);
 
-  /* --- Lumieres --- */
-  scene.add(new THREE.HemisphereLight(0xffe0b0, 0x202040, .9));
-  var sun = new THREE.DirectionalLight(0xfff5d0, 2.2);
-  sun.position.set(5,10,7); sun.castShadow = true;
-  sun.shadow.mapSize.width = 1024; sun.shadow.mapSize.height = 1024;
-  sun.shadow.camera.left=-8; sun.shadow.camera.right=8;
-  sun.shadow.camera.top=8; sun.shadow.camera.bottom=-8;
-  sun.shadow.camera.near=.5; sun.shadow.camera.far=30;
-  sun.shadow.bias = -.001; scene.add(sun);
-  var rim = new THREE.PointLight(0x5577ff, 1.4, 18);
-  rim.position.set(-5,8,-4); scene.add(rim);
+/* ===== MATERIAUX ===== */
+var mFur  =new THREE.MeshStandardMaterial({map:tFur,roughness:.92,metalness:0});
+var mBelly=new THREE.MeshStandardMaterial({map:tBelly,roughness:.9,metalness:0});
+var mNose =new THREE.MeshStandardMaterial({color:0xff6688,roughness:.4});
+var mEyeW =new THREE.MeshStandardMaterial({color:0xffffff,roughness:.15});
+var mIris =new THREE.MeshStandardMaterial({color:0x33dd77,roughness:.05,metalness:.1,
+  emissive:0x115522,emissiveIntensity:.6});
+var mPupil=new THREE.MeshStandardMaterial({color:0x050505,roughness:.05,
+  emissive:0x000000});
+var mWhi  =new THREE.MeshStandardMaterial({color:0xeeeeee,roughness:.8});
+var mPaw  =new THREE.MeshStandardMaterial({color:0xffbbcc,roughness:.6});
+var mDark =new THREE.MeshStandardMaterial({color:0x1a0a02,roughness:.9});
+var mGrass=new THREE.MeshStandardMaterial({color:0x4a7c3f,roughness:.95});
+var mTrunk=new THREE.MeshStandardMaterial({color:0x5c3d1e,roughness:.95});
+var mLeaf =new THREE.MeshStandardMaterial({color:0x2d6e2d,roughness:.9});
+var mRock =new THREE.MeshStandardMaterial({color:0x888880,roughness:.95});
 
-  /* --- Materiaux --- */
-  var mFur   = new THREE.MeshStandardMaterial({map:tFur,  bumpMap:tBump, bumpScale:.15, roughness:.92, metalness:0});
-  var mBelly = new THREE.MeshStandardMaterial({map:tBelly, bumpMap:tBump, bumpScale:.06, roughness:.9,  metalness:0});
-  var mNose  = new THREE.MeshStandardMaterial({color:0xff7090, roughness:.45});
-  var mEyeW  = new THREE.MeshStandardMaterial({color:0xf8f8f0, roughness:.2});
-  var mIris  = new THREE.MeshStandardMaterial({color:0x44cc66, roughness:.08, metalness:.2});
-  var mPupil = new THREE.MeshStandardMaterial({color:0x060606, roughness:.04, metalness:.3});
-  var mCorn  = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0, metalness:0, transparent:true, opacity:.14});
-  var mWhi   = new THREE.MeshStandardMaterial({color:0xeeeeee, roughness:.8});
-  var mPaw   = new THREE.MeshStandardMaterial({color:0xffbbbb, roughness:.65});
-  var mDark  = new THREE.MeshStandardMaterial({color:0x1a0a02, roughness:.9});
-  var mGnd   = new THREE.MeshStandardMaterial({color:0x23233a, roughness:.98});
+/* ===== CHAT ===== */
+var cat=new THREE.Group();cat.position.y=0;scene.add(cat);
 
-  /* --- Helpers --- */
-  var cat = new THREE.Group(); scene.add(cat);
+function mk(geo,mat,x,y,z,sx,sy,sz,rx,ry,rz){
+  var m=new THREE.Mesh(geo,mat);
+  m.position.set(x||0,y||0,z||0);
+  m.scale.set(sx||1,sy||1,sz||1);
+  m.rotation.set(rx||0,ry||0,rz||0);
+  m.castShadow=true;m.receiveShadow=true;cat.add(m);return m;
+}
+function tube(x1,y1,z1,x2,y2,z2,r,mat,parent){
+  var va=new THREE.Vector3(x1,y1,z1),vb=new THREE.Vector3(x2,y2,z2);
+  var dir=new THREE.Vector3().subVectors(vb,va),len=dir.length();
+  if(len<.001)return null;
+  var m=new THREE.Mesh(new THREE.CylinderGeometry(r*.9,r,len,10),mat);
+  new THREE.Vector3().addVectors(va,vb).multiplyScalar(.5);
+  m.position.copy(new THREE.Vector3().addVectors(va,vb).multiplyScalar(.5));
+  var nd=dir.clone().normalize();
+  if(Math.abs(nd.y)>.999){m.rotation.x=nd.y<0?Math.PI:0;}
+  else{m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),nd);}
+  m.castShadow=true;m.receiveShadow=true;
+  (parent||cat).add(m);return m;
+}
 
-  function mk(geo,mat,x,y,z,sx,sy,sz,rx,ry,rz) {
-    var m = new THREE.Mesh(geo,mat);
-    m.position.set(x||0,y||0,z||0);
-    m.scale.set(sx||1,sy||1,sz||1);
-    m.rotation.set(rx||0,ry||0,rz||0);
-    m.castShadow=true; m.receiveShadow=true;
-    cat.add(m); return m;
-  }
+// Corps
+mk(new THREE.SphereGeometry(1,28,20),mFur,0,.88,0,1,.58,1.8);
+mk(new THREE.SphereGeometry(.68,22,16),mBelly,0,.68,.1,.88,.46,1.45);
+mk(new THREE.SphereGeometry(.68,22,16),mFur,0,.92,.9,.88,.76,.82);
+mk(new THREE.SphereGeometry(.64,22,16),mFur,0,.83,-.88,.9,.72,.8);
+// Cou
+tube(0,.96,.65,0,1.40,1.10,.30,mFur);
+// Tete
+var head=mk(new THREE.SphereGeometry(.62,28,20),mFur,0,1.60,1.22,1.08,.95,1);
+mk(new THREE.SphereGeometry(.22,14,12),mFur,-.46,1.50,1.30,1,.82,.74);
+mk(new THREE.SphereGeometry(.22,14,12),mFur,.46,1.50,1.30,1,.82,.74);
+mk(new THREE.SphereGeometry(.25,16,14),mBelly,0,1.47,1.54,1.05,.72,.65);
+mk(new THREE.SphereGeometry(.055,10,8),mNose,0,1.56,1.70,1.2,.7,1);
+// Oreilles
+mk(new THREE.ConeGeometry(.22,.46,4),mFur,-.34,2.04,1.08,1,1,1,.08,0,-.14);
+mk(new THREE.ConeGeometry(.12,.27,4),mNose,-.34,2.04,1.10,1,1,1,.08,0,-.14);
+mk(new THREE.ConeGeometry(.22,.46,4),mFur,.34,2.04,1.08,1,1,1,.08,0,.14);
+mk(new THREE.ConeGeometry(.12,.27,4),mNose,.34,2.04,1.10,1,1,1,.08,0,.14);
+// YEUX (grands et lumineux)
+mk(new THREE.SphereGeometry(.135,20,16),mEyeW,-.23,1.64,1.46);
+mk(new THREE.SphereGeometry(.110,18,14),mIris,-.23,1.64,1.54);
+mk(new THREE.SphereGeometry(.065,12,10),mPupil,-.23,1.64,1.60,.25,1,1);
+mk(new THREE.SphereGeometry(.022,8,6),mEyeW,-.21,1.69,1.64);
+mk(new THREE.SphereGeometry(.135,20,16),mEyeW,.23,1.64,1.46);
+mk(new THREE.SphereGeometry(.110,18,14),mIris,.23,1.64,1.54);
+mk(new THREE.SphereGeometry(.065,12,10),mPupil,.23,1.64,1.60,.25,1,1);
+mk(new THREE.SphereGeometry(.022,8,6),mEyeW,.25,1.69,1.64);
+// Moustaches
+mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi,-.46,1.49,1.45,1,1,1,Math.PI/2,0,-.16);
+mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi,-.46,1.49,1.45,1,1,1,Math.PI/2,0,0);
+mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi,-.46,1.45,1.45,1,1,1,Math.PI/2,0,.16);
+mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi,.46,1.49,1.45,1,1,1,Math.PI/2,0,.16);
+mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi,.46,1.49,1.45,1,1,1,Math.PI/2,0,0);
+mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi,.46,1.45,1.45,1,1,1,Math.PI/2,0,-.16);
 
-  function tube(x1,y1,z1,x2,y2,z2,r,mat) {
-    var va=new THREE.Vector3(x1,y1,z1);
-    var vb=new THREE.Vector3(x2,y2,z2);
-    var dir=new THREE.Vector3().subVectors(vb,va);
-    var len=dir.length();
-    if(len<.001) return;
-    var m=new THREE.Mesh(new THREE.CylinderGeometry(r*.9,r,len,10),mat);
-    var mid=new THREE.Vector3().addVectors(va,vb).multiplyScalar(.5);
-    m.position.copy(mid);
-    var nd=dir.clone().normalize();
-    if(Math.abs(nd.y)>.999) { m.rotation.x = nd.y<0?Math.PI:0; }
-    else { m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),nd); }
-    m.castShadow=true; cat.add(m);
-  }
-
-  /* === CORPS (tres allonge) === */
-  mk(new THREE.SphereGeometry(1,28,20),   mFur,   0,.88,0,   1.0,.58,1.8);
-  mk(new THREE.SphereGeometry(.68,22,16), mBelly, 0,.68,.1,  .88,.46,1.45);
-  mk(new THREE.SphereGeometry(.68,22,16), mFur,   0,.92,.9,  .88,.76,.82);
-  mk(new THREE.SphereGeometry(.64,22,16), mFur,   0,.83,-.88,.90,.72,.80);
-
-  /* === COU === */
-  tube(0,.96,.65, 0,1.40,1.10, .30, mFur);
-
-  /* === TETE === */
-  var head=mk(new THREE.SphereGeometry(.62,28,20),mFur,0,1.60,1.22,1.08,.95,1.0);
-  mk(new THREE.SphereGeometry(.22,14,12),mFur, -.46,1.50,1.30,1,.82,.74);
-  mk(new THREE.SphereGeometry(.22,14,12),mFur,  .46,1.50,1.30,1,.82,.74);
-  mk(new THREE.SphereGeometry(.25,16,14),mBelly,0,1.47,1.54,1.05,.72,.65);
-  mk(new THREE.SphereGeometry(.05,10,8), mNose, 0,1.56,1.70,1.2,.7,1);
-
-  /* === OREILLES === */
-  mk(new THREE.ConeGeometry(.22,.46,4),mFur,  -.34,2.04,1.08,1,1,1,.08,0,-.14);
-  mk(new THREE.ConeGeometry(.12,.27,4),mNose, -.34,2.04,1.10,1,1,1,.08,0,-.14);
-  mk(new THREE.ConeGeometry(.22,.46,4),mFur,   .34,2.04,1.08,1,1,1,.08,0, .14);
-  mk(new THREE.ConeGeometry(.12,.27,4),mNose,  .34,2.04,1.10,1,1,1,.08,0, .14);
-
-  /* === YEUX === */
-  mk(new THREE.SphereGeometry(.112,18,14),mEyeW, -.22,1.63,1.48);
-  mk(new THREE.SphereGeometry(.086,16,12),mIris, -.22,1.63,1.55);
-  mk(new THREE.SphereGeometry(.058,10,8), mPupil,-.22,1.63,1.59,.28,1,1);
-  mk(new THREE.SphereGeometry(.115,16,12),mCorn, -.22,1.63,1.50);
-  mk(new THREE.SphereGeometry(.016,8,6),  mEyeW, -.20,1.67,1.62);
-  mk(new THREE.SphereGeometry(.112,18,14),mEyeW,  .22,1.63,1.48);
-  mk(new THREE.SphereGeometry(.086,16,12),mIris,  .22,1.63,1.55);
-  mk(new THREE.SphereGeometry(.058,10,8), mPupil, .22,1.63,1.59,.28,1,1);
-  mk(new THREE.SphereGeometry(.115,16,12),mCorn,  .22,1.63,1.50);
-  mk(new THREE.SphereGeometry(.016,8,6),  mEyeW,  .24,1.67,1.62);
-
-  /* === MOUSTACHES === */
-  mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi,-.46,1.49,1.45,1,1,1,Math.PI/2,0,-.16);
-  mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi,-.46,1.49,1.45,1,1,1,Math.PI/2,0,0);
-  mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi,-.46,1.45,1.45,1,1,1,Math.PI/2,0,.16);
-  mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi, .46,1.49,1.45,1,1,1,Math.PI/2,0,.16);
-  mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi, .46,1.49,1.45,1,1,1,Math.PI/2,0,0);
-  mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi, .46,1.45,1.45,1,1,1,Math.PI/2,0,-.16);
-
-  /* === PATTES (pose marche) === */
-  tube(-.42,.86,.68, -.42,.42,.90, .14,mFur);
-  tube(-.42,.42,.90, -.42,.03,1.04,.11,mFur);
-  mk(new THREE.SphereGeometry(.16,14,10),mFur,-.42,.10,1.06,1,.6,1.1);
-  mk(new THREE.SphereGeometry(.09,8,6),  mPaw,-.42,.04,1.12,.9,.35,.85);
-  mk(new THREE.SphereGeometry(.04,6,6),  mPaw,-.475,.02,1.16);
-  mk(new THREE.SphereGeometry(.04,6,6),  mPaw,-.42,.02,1.17);
-  mk(new THREE.SphereGeometry(.04,6,6),  mPaw,-.365,.02,1.16);
-
-  tube(.42,.90,.44, .42,.46,.20, .14,mFur);
-  tube(.42,.46,.20, .42,.03,.06, .11,mFur);
-  mk(new THREE.SphereGeometry(.16,14,10),mFur,.42,.10,.04,1,.6,1.1);
-  mk(new THREE.SphereGeometry(.09,8,6),  mPaw,.42,.04,-.02,.9,.35,.85);
-  mk(new THREE.SphereGeometry(.04,6,6),  mPaw,.475,.02,-.06);
-  mk(new THREE.SphereGeometry(.04,6,6),  mPaw,.42,.02,-.07);
-  mk(new THREE.SphereGeometry(.04,6,6),  mPaw,.365,.02,-.06);
-
-  tube(-.40,.80,-.62, -.40,.36,-.90, .14,mFur);
-  tube(-.40,.36,-.90, -.40,.03,-1.06,.11,mFur);
-  mk(new THREE.SphereGeometry(.16,14,10),mFur,-.40,.10,-1.08,1,.6,1.1);
-  mk(new THREE.SphereGeometry(.09,8,6),  mPaw,-.40,.04,-1.14,.9,.35,.85);
-  mk(new THREE.SphereGeometry(.04,6,6),  mPaw,-.455,.02,-1.18);
-  mk(new THREE.SphereGeometry(.04,6,6),  mPaw,-.40,.02,-1.19);
-  mk(new THREE.SphereGeometry(.04,6,6),  mPaw,-.345,.02,-1.18);
-
-  tube(.40,.83,-.47, .40,.40,-.20, .14,mFur);
-  tube(.40,.40,-.20, .40,.03,-.06, .11,mFur);
-  mk(new THREE.SphereGeometry(.16,14,10),mFur,.40,.10,-.04,1,.6,1.1);
-  mk(new THREE.SphereGeometry(.09,8,6),  mPaw,.40,.04,.02,.9,.35,.85);
-  mk(new THREE.SphereGeometry(.04,6,6),  mPaw,.455,.02,-.02);
-  mk(new THREE.SphereGeometry(.04,6,6),  mPaw,.40,.02,-.01);
-  mk(new THREE.SphereGeometry(.04,6,6),  mPaw,.345,.02,-.02);
-
-  /* === QUEUE === */
-  var qp=[[0,.85,-1.0],[-.04,1.05,-1.32],[-.10,1.42,-1.56],
-          [-.25,1.92,-1.66],[-.46,2.42,-1.52],[-.66,2.88,-1.22],
-          [-.73,3.12,-.96],[-.62,3.32,-.78]];
-  for (var i=0;i<qp.length;i++) {
-    var qm=(i%2===0)?mFur:mDark, qr=.09-.009*i;
-    mk(new THREE.SphereGeometry(qr,10,8),qm,qp[i][0],qp[i][1],qp[i][2]);
-    if(i>0) tube(qp[i-1][0],qp[i-1][1],qp[i-1][2],qp[i][0],qp[i][1],qp[i][2],qr+.01,qm);
-  }
-
-  /* === SOL === */
-  var gnd=new THREE.Mesh(new THREE.CircleGeometry(12,40),mGnd);
-  gnd.rotation.x=-Math.PI/2; gnd.receiveShadow=true; scene.add(gnd);
-  var grid=new THREE.GridHelper(24,24,0x2a2a45,0x222238);
-  grid.position.y=.005; scene.add(grid);
-
-  /* === CAMERA === */
-  var th=.5,ph=1.25,rd=11,tTh=.5,tPh=1.25,tRd=11;
-  function updateCam(){
-    cam.position.set(rd*Math.sin(ph)*Math.sin(th),2.2+rd*Math.cos(ph),rd*Math.sin(ph)*Math.cos(th));
-    cam.lookAt(0,1.2,0);
-  } updateCam();
-
-  /* === CONTROLES === */
-  var cv=R.domElement,drag=false,lx=0,ly=0,ld=0;
-  cv.addEventListener('mousedown',function(e){drag=true;lx=e.clientX;ly=e.clientY;});
-  window.addEventListener('mouseup',function(){drag=false;});
-  window.addEventListener('mousemove',function(e){
-    if(!drag)return;
-    tTh-=(e.clientX-lx)*.008;tPh=Math.max(.1,Math.min(Math.PI-.1,tPh-(e.clientY-ly)*.008));
-    lx=e.clientX;ly=e.clientY;
+// PATTES ANIMEES
+var legMeshes=[];
+function addLeg(hx,hz,phase){
+  var g=new THREE.Group();
+  g.position.set(hx,.88,hz);cat.add(g);
+  var upper=new THREE.Mesh(new THREE.CylinderGeometry(.13,.16,.52,10),mFur);
+  upper.position.y=-.26;upper.castShadow=true;g.add(upper);
+  var lowerG=new THREE.Group();lowerG.position.y=-.52;g.add(lowerG);
+  var lower=new THREE.Mesh(new THREE.CylinderGeometry(.10,.13,.46,10),mFur);
+  lower.position.y=-.23;lower.castShadow=true;lowerG.add(lower);
+  var paw=new THREE.Mesh(new THREE.SphereGeometry(.15,12,8),mFur);
+  paw.position.y=-.5;paw.scale.set(1,.6,1.1);paw.castShadow=true;lowerG.add(paw);
+  var pad=new THREE.Mesh(new THREE.SphereGeometry(.085,8,6),mPaw);
+  pad.position.set(0,-.53,.05);pad.scale.set(.9,.35,.85);lowerG.add(pad);
+  [-.06,0,.06].forEach(function(tx){
+    var toe=new THREE.Mesh(new THREE.SphereGeometry(.038,6,6),mPaw);
+    toe.position.set(tx,-.56,.08);toe.scale.set(.9,.4,.8);lowerG.add(toe);
   });
-  cv.addEventListener('wheel',function(e){tRd=Math.max(4,Math.min(20,tRd+e.deltaY*.015));},{passive:true});
-  cv.addEventListener('touchstart',function(e){
-    e.preventDefault();
-    if(e.touches.length===1){drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;}
-    if(e.touches.length===2)ld=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-  },{passive:false});
-  cv.addEventListener('touchmove',function(e){
-    e.preventDefault();
-    if(e.touches.length===1&&drag){
-      tTh-=(e.touches[0].clientX-lx)*.008;tPh=Math.max(.1,Math.min(Math.PI-.1,tPh-(e.touches[0].clientY-ly)*.008));
-      lx=e.touches[0].clientX;ly=e.touches[0].clientY;
-    }
-    if(e.touches.length===2){
-      var d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-      tRd=Math.max(4,Math.min(20,tRd-(d-ld)*.05));ld=d;
-    }
-  },{passive:false});
-  cv.addEventListener('touchend',function(){drag=false;});
+  legMeshes.push({grp:g,knee:lowerG,phase:phase});
+}
+addLeg(-.42,.65,0);addLeg(.42,.65,Math.PI);
+addLeg(-.40,-.65,Math.PI);addLeg(.40,-.65,0);
 
-  /* === ANIMATION === */
-  var clock=new THREE.Clock();
-  (function loop(){
-    requestAnimationFrame(loop);
-    var t=clock.getElapsedTime(),k=.1;
-    th+=(tTh-th)*k;ph+=(tPh-ph)*k;rd+=(tRd-rd)*k;
-    updateCam();
-    cat.position.y=Math.sin(t*1.2)*.03;
-    head.rotation.y=Math.sin(t*.5)*.08;
-    R.render(scene,cam);
-  })();
+// Queue
+var qp=[[0,.85,-1.0],[-.04,1.05,-1.32],[-.10,1.42,-1.56],
+  [-.25,1.92,-1.66],[-.46,2.42,-1.52],[-.66,2.88,-1.22],
+  [-.73,3.12,-.96],[-.62,3.32,-.78]];
+for(var i=0;i<qp.length;i++){
+  var qm=(i%2===0)?mFur:mDark,qr=.09-.009*i;
+  mk(new THREE.SphereGeometry(qr,10,8),qm,qp[i][0],qp[i][1],qp[i][2]);
+  if(i>0)tube(qp[i-1][0],qp[i-1][1],qp[i-1][2],qp[i][0],qp[i][1],qp[i][2],qr+.01,qm);
+}
 
-  window.addEventListener('resize',function(){
-    cam.aspect=innerWidth/innerHeight;
-    cam.updateProjectionMatrix();
-    R.setSize(innerWidth,innerHeight);
+/* ===== ENVIRONNEMENT ===== */
+var gnd=new THREE.Mesh(new THREE.PlaneGeometry(120,120,1,1),mGrass);
+gnd.rotation.x=-Math.PI/2;gnd.receiveShadow=true;scene.add(gnd);
+
+function addTree(x,z){
+  var trunk=new THREE.Mesh(new THREE.CylinderGeometry(.25,.35,2.5,8),mTrunk);
+  trunk.position.set(x,1.25,z);trunk.castShadow=true;scene.add(trunk);
+  var crown=new THREE.Mesh(new THREE.ConeGeometry(1.8,3.5,8),mLeaf);
+  crown.position.set(x,4,z);crown.castShadow=true;scene.add(crown);
+  var crown2=new THREE.Mesh(new THREE.ConeGeometry(1.3,2.8,8),mLeaf);
+  crown2.position.set(x,5.5,z);scene.add(crown2);
+}
+var trees=[[-8,5],[-12,-4],[7,8],[15,2],[-5,-10],[10,-8],[18,-3],[-15,8],[3,15],[-9,13]];
+trees.forEach(function(t){addTree(t[0],t[1]);});
+
+var rocks=[[-4,6],[6,-5],[10,5],[-10,3]];
+rocks.forEach(function(r){
+  var rock=new THREE.Mesh(new THREE.SphereGeometry(.5+Math.random()*.4,8,6),mRock);
+  rock.position.set(r[0],.3,r[1]);rock.scale.y=.6;rock.castShadow=true;scene.add(rock);
+});
+
+/* ===== JOYSTICK ===== */
+var joyEl=document.getElementById('joyWrap');
+var joyKnob=document.getElementById('joyKnob');
+var joyInput={x:0,y:0},joyActive=false,joyId=-1;
+var maxJoy=32,knobOff=32;
+
+joyEl.addEventListener('touchstart',function(e){
+  e.preventDefault();
+  if(joyActive)return;
+  joyActive=true;
+  joyId=e.changedTouches[0].identifier;
+},{passive:false});
+
+document.addEventListener('touchmove',function(e){
+  for(var i=0;i<e.changedTouches.length;i++){
+    if(e.changedTouches[i].identifier===joyId){
+      var r=joyEl.getBoundingClientRect();
+      var cx=r.left+r.width/2,cy=r.top+r.height/2;
+      var dx=e.changedTouches[i].clientX-cx,dy=e.changedTouches[i].clientY-cy;
+      var dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist>maxJoy){dx=dx/dist*maxJoy;dy=dy/dist*maxJoy;}
+      joyInput.x=dx/maxJoy;joyInput.y=dy/maxJoy;
+      joyKnob.style.left=(knobOff+dx)+'px';
+      joyKnob.style.top=(knobOff+dy)+'px';
+    }
+  }
+},{passive:true});
+
+document.addEventListener('touchend',function(e){
+  for(var i=0;i<e.changedTouches.length;i++){
+    if(e.changedTouches[i].identifier===joyId){
+      joyActive=false;joyId=-1;
+      joyInput.x=0;joyInput.y=0;
+      joyKnob.style.left=knobOff+'px';
+      joyKnob.style.top=knobOff+'px';
+    }
+  }
+});
+
+/* ===== JEU ===== */
+var catAngle=0,walkTime=0,moveSpd=0;
+var CAM_DIST=7,CAM_H=3.5;
+var camPos=new THREE.Vector3(0,CAM_H,CAM_DIST);
+
+var clock=new THREE.Clock();
+(function loop(){
+  requestAnimationFrame(loop);
+  var dt=Math.min(clock.getDelta(),.05);
+  var t=clock.elapsedTime;
+
+  // Mouvement
+  var turn=-joyInput.x*2.2*dt;
+  var fwd=-joyInput.y*4.5*dt;
+  catAngle+=turn;
+  cat.rotation.y=catAngle;
+  cat.position.x+=Math.sin(catAngle)*fwd;
+  cat.position.z+=Math.cos(catAngle)*fwd;
+  moveSpd+=(Math.abs(fwd)/.015-moveSpd)*.2;
+
+  // Respiration / bobbing
+  var bob=Math.abs(fwd)>0.001?Math.sin(t*10)*.04:.012*Math.sin(t*1.2);
+  cat.position.y=bob;
+  walkTime+=moveSpd*8*dt;
+
+  // Animation pattes
+  legMeshes.forEach(function(leg){
+    var swg=Math.sin(walkTime+leg.phase)*Math.min(moveSpd,.8)*.55;
+    leg.grp.rotation.x=swg;
+    leg.knee.rotation.x=Math.max(0,-swg)*.45;
   });
 
-  </script>
+  // Tete bouge
+  head.rotation.y=Math.sin(t*.5)*.07;
+
+  // Camera 3eme personne
+  var tx=cat.position.x+Math.sin(catAngle)*CAM_DIST;
+  var ty=cat.position.y+CAM_H;
+  var tz=cat.position.z+Math.cos(catAngle)*CAM_DIST;
+  camPos.x+=(tx-camPos.x)*.08;
+  camPos.y+=(ty-camPos.y)*.08;
+  camPos.z+=(tz-camPos.z)*.08;
+  cam.position.copy(camPos);
+  cam.lookAt(cat.position.x,cat.position.y+1.5,cat.position.z);
+
+  R.render(scene,cam);
+})();
+
+window.addEventListener('resize',function(){
+  cam.aspect=innerWidth/innerHeight;
+  cam.updateProjectionMatrix();
+  R.setSize(innerWidth,innerHeight);
+});
+</script>
 </body>
 </html>
