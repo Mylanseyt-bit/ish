@@ -1,153 +1,202 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
   <title>Chat 3D</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #1a1a2e; overflow: hidden; touch-action: none; }
-    canvas { display: block; }
-    #info {
-      position: absolute;
-      top: 18px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: #ccc;
-      font-family: -apple-system, sans-serif;
-      font-size: 14px;
-      pointer-events: none;
-      white-space: nowrap;
-      background: rgba(0,0,0,0.35);
-      padding: 6px 14px;
-      border-radius: 20px;
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#1a1a2e;overflow:hidden;touch-action:none}
+    canvas{display:block}
+    #info{
+      position:absolute;top:18px;left:50%;transform:translateX(-50%);
+      color:#ccc;font-family:-apple-system,sans-serif;font-size:14px;
+      pointer-events:none;white-space:nowrap;
+      background:rgba(0,0,0,.4);padding:6px 16px;border-radius:20px;
     }
-    #info b { color: #a0c4ff; }
+    #info b{color:#a0c4ff}
   </style>
 </head>
 <body>
   <div id="info"><b>Glisser</b> pour tourner &bull; <b>Pincer</b> pour zoomer</div>
-
   <script src="https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.163.0/examples/js/controls/OrbitControls.js"></script>
-
   <script>
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(innerWidth, innerHeight);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    document.body.appendChild(renderer.domElement);
+  /* ── Renderer ───────────────────────────────────── */
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.body.appendChild(renderer.domElement);
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a2e);
-    scene.fog = new THREE.Fog(0x1a1a2e, 20, 40);
+  const scene  = new THREE.Scene();
+  scene.background = new THREE.Color(0x1a1a2e);
+  scene.fog = new THREE.Fog(0x1a1a2e, 20, 40);
 
-    const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
-    camera.position.set(0, 4, 11);
+  const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 100);
 
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
-    controls.minDistance = 4;
-    controls.maxDistance = 22;
-    controls.target.set(0, 1.6, 0);
-    controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
-    controls.update();
+  /* ── Simple orbit (mouse + touch) ───────────────── */
+  let theta = 0.3, phi = 1.15, radius = 11;
+  let tTheta = theta, tPhi = phi, tRadius = radius; // targets for damping
+  const TX = 0, TY = 1.6, TZ = 0;
 
-    scene.add(new THREE.AmbientLight(0x404060, 1.4));
-    const sun = new THREE.DirectionalLight(0xfff0e0, 2.5);
-    sun.position.set(5, 10, 6);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    Object.assign(sun.shadow.camera, { left:-8, right:8, top:8, bottom:-8, near:0.5, far:40 });
-    scene.add(sun);
-    const fill = new THREE.DirectionalLight(0x8888ff, 0.6);
-    fill.position.set(-4, 3, -4);
-    scene.add(fill);
-    const rim = new THREE.PointLight(0xff8844, 1.0, 22);
-    rim.position.set(-3, 6, -5);
-    scene.add(rim);
+  function applyCamera() {
+    camera.position.set(
+      TX + radius * Math.sin(phi) * Math.sin(theta),
+      TY + radius * Math.cos(phi),
+      TZ + radius * Math.sin(phi) * Math.cos(theta)
+    );
+    camera.lookAt(TX, TY, TZ);
+  }
+  applyCamera();
 
-    const M = (color, roughness=0.85) => new THREE.MeshStandardMaterial({ color, roughness, metalness:0 });
-    const mFur=M(0xd4925a), mBelly=M(0xf5d5aa,0.9), mDark=M(0x8b5c2a,0.9);
-    const mEyeW=M(0xf0f8ff,0.3), mIris=M(0x22cc88,0.3);
-    const mPupil=new THREE.MeshStandardMaterial({color:0x111111,roughness:0.2,metalness:0.1});
-    const mNose=M(0xff7799,0.6), mWhisker=M(0xffffff,1.0), mPaw=M(0xffaaaa,0.8);
+  const el = renderer.domElement;
+  let dragging = false, lx = 0, ly = 0;
 
-    const cat = new THREE.Group();
-    scene.add(cat);
+  el.addEventListener('mousedown', e => { dragging=true; lx=e.clientX; ly=e.clientY; });
+  window.addEventListener('mouseup',   () => dragging=false);
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    tTheta -= (e.clientX-lx)*0.008;
+    tPhi    = Math.max(0.15, Math.min(Math.PI-0.15, tPhi-(e.clientY-ly)*0.008));
+    lx=e.clientX; ly=e.clientY;
+  });
+  el.addEventListener('wheel', e => {
+    tRadius = Math.max(4, Math.min(22, tRadius + e.deltaY*0.015));
+  }, {passive:true});
 
-    function add(geo, mat, {x=0,y=0,z=0,rx=0,ry=0,rz=0,sx=1,sy=1,sz=1}={}) {
-      const m = new THREE.Mesh(geo, mat);
-      m.position.set(x,y,z); m.rotation.set(rx,ry,rz); m.scale.set(sx,sy,sz);
-      m.castShadow = true; m.receiveShadow = true;
-      cat.add(m); return m;
+  // Touch
+  let lastDist = 0;
+  el.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (e.touches.length===1){ dragging=true; lx=e.touches[0].clientX; ly=e.touches[0].clientY; }
+    if (e.touches.length===2){
+      dragging=false;
+      lastDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
+                            e.touches[0].clientY-e.touches[1].clientY);
     }
+  },{passive:false});
+  el.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length===1 && dragging){
+      tTheta -= (e.touches[0].clientX-lx)*0.008;
+      tPhi    = Math.max(0.15, Math.min(Math.PI-0.15, tPhi-(e.touches[0].clientY-ly)*0.008));
+      lx=e.touches[0].clientX; ly=e.touches[0].clientY;
+    }
+    if (e.touches.length===2){
+      const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
+                           e.touches[0].clientY-e.touches[1].clientY);
+      tRadius = Math.max(4, Math.min(22, tRadius-(d-lastDist)*0.06));
+      lastDist=d;
+    }
+  },{passive:false});
+  el.addEventListener('touchend', () => dragging=false);
 
-    add(new THREE.SphereGeometry(1.1,32,24), mFur,   {y:1.4,sy:0.85,sz:1.3});
-    add(new THREE.SphereGeometry(0.7,24,20),  mBelly, {y:1.3,z:0.95,sx:0.9,sy:0.65,sz:0.35});
-    add(new THREE.CylinderGeometry(0.42,0.52,0.5,20), mFur, {y:2.3});
-    const head = add(new THREE.SphereGeometry(0.75,32,24), mFur, {y:3.0});
-    add(new THREE.SphereGeometry(0.35,20,16), mBelly, {y:2.88,z:0.60,sx:1.1,sy:0.75,sz:0.70});
-    add(new THREE.SphereGeometry(0.085,12,10), mNose,  {y:2.98,z:0.93,sx:1.2,sy:0.80});
+  /* ── Lights ─────────────────────────────────────── */
+  scene.add(new THREE.AmbientLight(0x404060, 1.4));
+  const sun = new THREE.DirectionalLight(0xfff0e0, 2.5);
+  sun.position.set(5,10,6); sun.castShadow=true;
+  sun.shadow.mapSize.set(2048,2048);
+  Object.assign(sun.shadow.camera,{left:-8,right:8,top:8,bottom:-8,near:.5,far:40});
+  scene.add(sun);
+  const fill = new THREE.DirectionalLight(0x8888ff,.6); fill.position.set(-4,3,-4); scene.add(fill);
+  const rim  = new THREE.PointLight(0xff8844,1.0,22);   rim.position.set(-3,6,-5);  scene.add(rim);
 
-    [-1,1].forEach(s => {
-      add(new THREE.ConeGeometry(0.28,0.55,4), mFur,  {x:s*0.45,y:3.6,z:-0.12,rx:0.10,rz:s*-0.18});
-      add(new THREE.ConeGeometry(0.16,0.35,4), mNose, {x:s*0.45,y:3.6,z:-0.09,rx:0.10,rz:s*-0.18});
-    });
-    [-1,1].forEach(s => {
-      add(new THREE.SphereGeometry(0.155,20,16), mEyeW,  {x:s*0.27,y:3.08,z:0.65});
-      add(new THREE.SphereGeometry(0.120,18,14), mIris,  {x:s*0.27,y:3.08,z:0.75});
-      add(new THREE.SphereGeometry(0.080,12,10), mPupil, {x:s*0.27,y:3.08,z:0.80,sx:0.35});
-      add(new THREE.SphereGeometry(0.028,8,8),   mEyeW,  {x:s*0.27+0.03,y:3.13,z:0.84});
-    });
-    [[-1,-0.22,0.06],[-1,0,-0.01],[-1,0.22,-0.08],[1,0.22,0.06],[1,0,-0.01],[1,-0.22,-0.08]]
-      .forEach(([s,rz,dy]) =>
-        add(new THREE.CylinderGeometry(0.008,0.004,0.9,6), mWhisker,
-            {x:s*0.55,y:2.9+dy,z:0.7,rx:Math.PI/2,rz}));
-    [[-0.55,0.9,1],[0.55,0.9,1],[-0.52,-0.6,-1],[0.52,-0.6,-1]].forEach(([x,z,fb]) => {
-      add(new THREE.CapsuleGeometry(0.2,0.45,8,12), mFur, {x,y:0.85,z,rx:fb*0.15});
-      add(new THREE.SphereGeometry(0.22,16,12), mFur, {x,y:0.28,z:z+fb*0.10,sy:0.70,sz:1.15});
-      add(new THREE.SphereGeometry(0.13,12,10), mPaw, {x,y:0.15,z:z+fb*0.15,sx:0.9,sy:0.40,sz:0.90});
-    });
-    const tailCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0.0,1.1,-1.25), new THREE.Vector3(-0.5,1.6,-1.70),
-      new THREE.Vector3(-1.1,2.5,-1.40), new THREE.Vector3(-0.9,3.2,-0.80),
-      new THREE.Vector3(-0.4,3.5,-0.50)
-    ]);
-    const tail = add(new THREE.TubeGeometry(tailCurve,24,0.12,10,false), mFur);
-    add(new THREE.SphereGeometry(0.18,14,10), mBelly, {x:-0.4,y:3.5,z:-0.5});
-    [[1.65,0.3,0.20],[1.35,0.4,0.15],[1.05,0.35,0.10]].forEach(([y,z,rz]) =>
-      add(new THREE.TorusGeometry(0.82,0.055,8,36,Math.PI*0.7), mDark, {y,z,rz}));
+  /* ── Materials ──────────────────────────────────── */
+  const M = (c,r=.85) => new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:0});
+  const mFur=M(0xd4925a), mBelly=M(0xf5d5aa,.9), mDark=M(0x8b5c2a,.9);
+  const mEyeW=M(0xf0f8ff,.3), mIris=M(0x22cc88,.3);
+  const mPupil=new THREE.MeshStandardMaterial({color:0x111111,roughness:.2,metalness:.1});
+  const mNose=M(0xff7799,.6), mWhi=M(0xffffff,1), mPaw=M(0xffaaaa,.8);
 
-    const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(10,64),
-      new THREE.MeshStandardMaterial({color:0x23233a,roughness:0.95}));
-    ground.rotation.x = -Math.PI/2;
-    ground.receiveShadow = true;
-    scene.add(ground);
-    const grid = new THREE.GridHelper(20,20,0x333355,0x2a2a44);
-    grid.position.y = 0.01;
-    scene.add(grid);
+  /* ── Cat ────────────────────────────────────────── */
+  const cat = new THREE.Group();
+  scene.add(cat);
 
-    const clock = new THREE.Clock();
-    (function animate() {
-      requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
-      cat.scale.y = 1 + Math.sin(t*1.4)*0.012;
-      cat.scale.x = 1 - Math.sin(t*1.4)*0.006;
-      tail.rotation.y = Math.sin(t*0.9)*0.2;
-      head.rotation.y = Math.sin(t*0.5)*0.12;
-      controls.update();
-      renderer.render(scene, camera);
-    })();
+  function add(geo,mat,{x=0,y=0,z=0,rx=0,ry=0,rz=0,sx=1,sy=1,sz=1}={}){
+    const m=new THREE.Mesh(geo,mat);
+    m.position.set(x,y,z); m.rotation.set(rx,ry,rz); m.scale.set(sx,sy,sz);
+    m.castShadow=true; m.receiveShadow=true; cat.add(m); return m;
+  }
 
-    window.addEventListener('resize', () => {
-      camera.aspect = innerWidth / innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
-    });
+  // Body
+  add(new THREE.SphereGeometry(1.1,32,24),   mFur,   {y:1.4,sy:.85,sz:1.3});
+  add(new THREE.SphereGeometry(.7,24,20),    mBelly, {y:1.3,z:.95,sx:.9,sy:.65,sz:.35});
+  // Neck
+  add(new THREE.CylinderGeometry(.42,.52,.5,20), mFur, {y:2.3});
+  // Head
+  const head=add(new THREE.SphereGeometry(.75,32,24), mFur, {y:3.0});
+  // Muzzle + nose
+  add(new THREE.SphereGeometry(.35,20,16), mBelly, {y:2.88,z:.60,sx:1.1,sy:.75,sz:.70});
+  add(new THREE.SphereGeometry(.085,12,10),mNose,  {y:2.98,z:.93,sx:1.2,sy:.80});
+  // Ears
+  [-1,1].forEach(s=>{
+    add(new THREE.ConeGeometry(.28,.55,4), mFur,  {x:s*.45,y:3.6,z:-.12,rx:.10,rz:s*-.18});
+    add(new THREE.ConeGeometry(.16,.35,4), mNose, {x:s*.45,y:3.6,z:-.09,rx:.10,rz:s*-.18});
+  });
+  // Eyes
+  [-1,1].forEach(s=>{
+    add(new THREE.SphereGeometry(.155,20,16), mEyeW, {x:s*.27,y:3.08,z:.65});
+    add(new THREE.SphereGeometry(.120,18,14), mIris, {x:s*.27,y:3.08,z:.75});
+    add(new THREE.SphereGeometry(.080,12,10), mPupil,{x:s*.27,y:3.08,z:.80,sx:.35});
+    add(new THREE.SphereGeometry(.028,8,8),   mEyeW, {x:s*.27+.03,y:3.13,z:.84});
+  });
+  // Whiskers
+  [[-1,-.22,.06],[-1,0,-.01],[-1,.22,-.08],[1,.22,.06],[1,0,-.01],[1,-.22,-.08]]
+    .forEach(([s,rz,dy])=>
+      add(new THREE.CylinderGeometry(.008,.004,.9,6),mWhi,{x:s*.55,y:2.9+dy,z:.7,rx:Math.PI/2,rz}));
+  // Legs
+  [[-0.55,.9,1],[.55,.9,1],[-.52,-.6,-1],[.52,-.6,-1]].forEach(([x,z,fb])=>{
+    add(new THREE.CapsuleGeometry(.2,.45,8,12), mFur, {x,y:.85,z,rx:fb*.15});
+    add(new THREE.SphereGeometry(.22,16,12),    mFur, {x,y:.28,z:z+fb*.10,sy:.70,sz:1.15});
+    add(new THREE.SphereGeometry(.13,12,10),    mPaw, {x,y:.15,z:z+fb*.15,sx:.9,sy:.40,sz:.90});
+  });
+  // Tail
+  const tc=new THREE.CatmullRomCurve3([
+    new THREE.Vector3(.0,1.1,-1.25), new THREE.Vector3(-.5,1.6,-1.70),
+    new THREE.Vector3(-1.1,2.5,-1.40),new THREE.Vector3(-.9,3.2,-.80),
+    new THREE.Vector3(-.4,3.5,-.50)
+  ]);
+  const tail=add(new THREE.TubeGeometry(tc,24,.12,10,false),mFur);
+  add(new THREE.SphereGeometry(.18,14,10),mBelly,{x:-.4,y:3.5,z:-.5});
+  // Stripes
+  [[1.65,.3,.20],[1.35,.4,.15],[1.05,.35,.10]].forEach(([y,z,rz])=>
+    add(new THREE.TorusGeometry(.82,.055,8,36,Math.PI*.7),mDark,{y,z,rz}));
+
+  /* ── Ground ─────────────────────────────────────── */
+  const gnd=new THREE.Mesh(new THREE.CircleGeometry(10,64),
+    new THREE.MeshStandardMaterial({color:0x23233a,roughness:.95}));
+  gnd.rotation.x=-Math.PI/2; gnd.receiveShadow=true; scene.add(gnd);
+  const grid=new THREE.GridHelper(20,20,0x333355,0x2a2a44);
+  grid.position.y=.01; scene.add(grid);
+
+  /* ── Animate ────────────────────────────────────── */
+  const clock=new THREE.Clock();
+  (function loop(){
+    requestAnimationFrame(loop);
+    const t=clock.getElapsedTime();
+
+    // Damping
+    const k=.12;
+    theta  += (tTheta -theta) *k;
+    phi    += (tPhi   -phi)   *k;
+    radius += (tRadius-radius)*k;
+    applyCamera();
+
+    // Idle animation
+    cat.scale.y = 1+Math.sin(t*1.4)*.012;
+    cat.scale.x = 1-Math.sin(t*1.4)*.006;
+    tail.rotation.y = Math.sin(t*.9)*.2;
+    head.rotation.y = Math.sin(t*.5)*.12;
+
+    renderer.render(scene,camera);
+  })();
+
+  window.addEventListener('resize',()=>{
+    camera.aspect=innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight);
+  });
   </script>
 </body>
 </html>
