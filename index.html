@@ -3,237 +3,273 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
-  <title>Chat Tigré 3D</title>
+  <title>Chat 3D</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{background:#1a1a0d;overflow:hidden;touch-action:none}
+    body{background:#1a1a2e;overflow:hidden;touch-action:none}
     canvas{display:block}
     #info{position:absolute;top:16px;left:50%;transform:translateX(-50%);
       color:#ddd;font-family:-apple-system,sans-serif;font-size:14px;
       background:rgba(0,0,0,.55);padding:6px 16px;border-radius:20px;
       pointer-events:none;white-space:nowrap}
-    #info b{color:#aed6f1}
+    #info b{color:#a0c4ff}
   </style>
 </head>
 <body>
   <div id="info"><b>1 doigt</b> tourner &bull; <b>2 doigts</b> zoomer</div>
   <script>
-  const s=document.createElement('script');
+  var s=document.createElement('script');
   s.src='https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js';
   s.onload=main;
   document.head.appendChild(s);
 
   function main(){
 
-  /* ── Textures ──────────────────────────────────── */
-  function tabbyfur(sz){
-    const cv=document.createElement('canvas');cv.width=cv.height=sz;
-    const cx=cv.getContext('2d');
+  /* --- Textures --- */
+  function makeFur(sz){
+    var cv=document.createElement('canvas');cv.width=cv.height=sz;
+    var cx=cv.getContext('2d');
     cx.fillStyle='#7a6040';cx.fillRect(0,0,sz,sz);
-    // bandes mackerel avec gradient doux
-    const bw=sz/10;
-    for(let x=0;x<sz;x+=bw*2){
-      const g=cx.createLinearGradient(x,0,x+bw,0);
-      g.addColorStop(0,'rgba(20,10,2,0)');
-      g.addColorStop(.25,'rgba(20,10,2,.6)');
-      g.addColorStop(.75,'rgba(20,10,2,.6)');
-      g.addColorStop(1,'rgba(20,10,2,0)');
+    var bw=sz/10;
+    for(var x=0;x<sz;x+=bw*2){
+      var g=cx.createLinearGradient(x,0,x+bw,0);
+      g.addColorStop(0,'rgba(18,9,2,0)');
+      g.addColorStop(.3,'rgba(18,9,2,.58)');
+      g.addColorStop(.7,'rgba(18,9,2,.58)');
+      g.addColorStop(1,'rgba(18,9,2,0)');
       cx.fillStyle=g;cx.fillRect(x,0,bw,sz);
     }
-    // poils
-    for(let i=0;i<5500;i++){
-      const px=Math.random()*sz,py=Math.random()*sz;
-      const len=2+Math.random()*9;
-      const ang=-Math.PI/2+(Math.random()-.5)*.9;
-      cx.strokeStyle=`rgba(14,7,1,${.03+Math.random()*.22})`;
+    for(var i=0;i<5000;i++){
+      var px=Math.random()*sz,py=Math.random()*sz;
+      var len=2+Math.random()*9;
+      var ang=-Math.PI/2+(Math.random()-.5)*.9;
+      cx.strokeStyle='rgba(14,7,1,'+((.04+Math.random()*.2).toFixed(2))+')';
       cx.lineWidth=.3+Math.random()*1.3;
       cx.beginPath();cx.moveTo(px,py);
       cx.lineTo(px+Math.cos(ang)*len,py+Math.sin(ang)*len);cx.stroke();
     }
-    const t=new THREE.CanvasTexture(cv);
+    var t=new THREE.CanvasTexture(cv);
     t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,2);return t;
   }
-  function bellyfur(sz){
-    const cv=document.createElement('canvas');cv.width=cv.height=sz;
-    const cx=cv.getContext('2d');
+  function makeBelly(sz){
+    var cv=document.createElement('canvas');cv.width=cv.height=sz;
+    var cx=cv.getContext('2d');
     cx.fillStyle='#c8aa70';cx.fillRect(0,0,sz,sz);
-    for(let i=0;i<2500;i++){
-      const px=Math.random()*sz,py=Math.random()*sz;
-      const len=2+Math.random()*7;
-      const ang=-Math.PI/2+(Math.random()-.5)*.7;
-      cx.strokeStyle=`rgba(140,95,35,${.03+Math.random()*.15})`;
+    for(var i=0;i<2500;i++){
+      var px=Math.random()*sz,py=Math.random()*sz;
+      var len=2+Math.random()*7;
+      var ang=-Math.PI/2+(Math.random()-.5)*.7;
+      cx.strokeStyle='rgba(140,95,35,'+((.03+Math.random()*.15).toFixed(2))+')';
       cx.lineWidth=.3+Math.random()*1.1;
       cx.beginPath();cx.moveTo(px,py);
       cx.lineTo(px+Math.cos(ang)*len,py+Math.sin(ang)*len);cx.stroke();
     }
-    const t=new THREE.CanvasTexture(cv);
+    var t=new THREE.CanvasTexture(cv);
     t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,2);return t;
   }
-  function bumptex(sz){
-    const cv=document.createElement('canvas');cv.width=cv.height=sz;
-    const cx=cv.getContext('2d');cx.fillStyle='#888';cx.fillRect(0,0,sz,sz);
-    for(let i=0;i<4000;i++){
-      const x=Math.random()*sz,y=Math.random()*sz,r=.5+Math.random()*2;
-      const v=Math.floor(85+Math.random()*90);
-      cx.fillStyle=`rgb(${v},${v},${v})`;
+  function makeBump(sz){
+    var cv=document.createElement('canvas');cv.width=cv.height=sz;
+    var cx=cv.getContext('2d');cx.fillStyle='#888';cx.fillRect(0,0,sz,sz);
+    for(var i=0;i<3500;i++){
+      var x=Math.random()*sz,y=Math.random()*sz,r=.5+Math.random()*2;
+      var v=Math.floor(85+Math.random()*90);
+      cx.fillStyle='rgb('+v+','+v+','+v+')';
       cx.beginPath();cx.arc(x,y,r,0,Math.PI*2);cx.fill();
     }
     return new THREE.CanvasTexture(cv);
   }
-  const tFur=tabbyfur(512),tBelly=bellyfur(256),tBump=bumptex(256);
+  var tFur=makeFur(512),tBelly=makeBelly(256),tBump=makeBump(256);
 
-  /* ── Renderer ────────────────────────────────── */
-  const R=new THREE.WebGLRenderer({antialias:true});
+  /* --- Renderer --- */
+  var R=new THREE.WebGLRenderer({antialias:true});
   R.setPixelRatio(Math.min(devicePixelRatio,2));
   R.setSize(innerWidth,innerHeight);
-  R.shadowMap.enabled=true;R.shadowMap.type=THREE.PCFSoftShadowMap;
+  R.shadowMap.enabled=true;
+  R.shadowMap.type=THREE.PCFSoftShadowMap;
   R.outputEncoding=THREE.sRGBEncoding;
-  R.toneMapping=THREE.ACESFilmicToneMapping;R.toneMappingExposure=1.3;
+  R.toneMapping=THREE.ACESFilmicToneMapping;
+  R.toneMappingExposure=1.3;
   document.body.appendChild(R.domElement);
-  const scene=new THREE.Scene();
-  scene.background=new THREE.Color(0x1a1a0d);
-  scene.fog=new THREE.FogExp2(0x1a1a0d,.03);
-  const cam=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.1,100);
 
-  /* ── Lumières ────────────────────────────────── */
-  scene.add(new THREE.HemisphereLight(0xffe0b0,0x202010,.9));
-  const sun=new THREE.DirectionalLight(0xfff5d0,2.2);
+  var scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x1a1a2e);
+  scene.fog=new THREE.FogExp2(0x1a1a2e,.03);
+  var cam=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.1,100);
+
+  /* --- Lumieres --- */
+  scene.add(new THREE.HemisphereLight(0xffe0b0,0x202040,.9));
+  var sun=new THREE.DirectionalLight(0xfff5d0,2.2);
   sun.position.set(5,10,7);sun.castShadow=true;
-  sun.shadow.mapSize.set(2048,2048);
-  Object.assign(sun.shadow.camera,{left:-8,right:8,top:8,bottom:-8,near:.5,far:30});
+  sun.shadow.mapSize.width=2048;sun.shadow.mapSize.height=2048;
+  sun.shadow.camera.left=-8;sun.shadow.camera.right=8;
+  sun.shadow.camera.top=8;sun.shadow.camera.bottom=-8;
+  sun.shadow.camera.near=.5;sun.shadow.camera.far=30;
   sun.shadow.bias=-.001;scene.add(sun);
-  const rim=new THREE.PointLight(0x5577ff,1.5,18);
+  var rim=new THREE.PointLight(0x5577ff,1.5,18);
   rim.position.set(-5,8,-4);scene.add(rim);
 
-  /* ── Matériaux ───────────────────────────────── */
-  const mFur  =new THREE.MeshStandardMaterial({map:tFur,bumpMap:tBump,bumpScale:.18,roughness:.92,metalness:0});
-  const mBelly=new THREE.MeshStandardMaterial({map:tBelly,bumpMap:tBump,bumpScale:.06,roughness:.9,metalness:0});
-  const mNose =new THREE.MeshStandardMaterial({color:0xff7090,roughness:.45,metalness:.04});
-  const mEyeW =new THREE.MeshStandardMaterial({color:0xf8f8f0,roughness:.2});
-  const mIris =new THREE.MeshStandardMaterial({color:0x55cc77,roughness:.08,metalness:.2});
-  const mPupil=new THREE.MeshStandardMaterial({color:0x060606,roughness:.04,metalness:.3});
-  const mCorn =new THREE.MeshStandardMaterial({color:0xffffff,roughness:0,metalness:0,transparent:true,opacity:.14});
-  const mWhi  =new THREE.MeshStandardMaterial({color:0xeeeeee,roughness:.8});
-  const mPaw  =new THREE.MeshStandardMaterial({color:0xffbbbb,roughness:.65});
-  const mDark =new THREE.MeshStandardMaterial({color:0x1a0a02,roughness:.9});
-  const mGnd  =new THREE.MeshStandardMaterial({color:0x14140a,roughness:.98});
+  /* --- Materiaux --- */
+  var mFur  =new THREE.MeshStandardMaterial({map:tFur,bumpMap:tBump,bumpScale:.18,roughness:.92,metalness:0});
+  var mBelly=new THREE.MeshStandardMaterial({map:tBelly,bumpMap:tBump,bumpScale:.06,roughness:.9,metalness:0});
+  var mNose =new THREE.MeshStandardMaterial({color:0xff7090,roughness:.45});
+  var mEyeW =new THREE.MeshStandardMaterial({color:0xf8f8f0,roughness:.2});
+  var mIris =new THREE.MeshStandardMaterial({color:0x44bb55,roughness:.08,metalness:.2});
+  var mPupil=new THREE.MeshStandardMaterial({color:0x050505,roughness:.04,metalness:.3});
+  var mCorn =new THREE.MeshStandardMaterial({color:0xffffff,roughness:0,metalness:0,transparent:true,opacity:.14});
+  var mWhi  =new THREE.MeshStandardMaterial({color:0xeeeeee,roughness:.8});
+  var mPaw  =new THREE.MeshStandardMaterial({color:0xffbbbb,roughness:.65});
+  var mDark =new THREE.MeshStandardMaterial({color:0x1a0a02,roughness:.9});
 
-  /* ── Helpers ────────────────────────────────── */
-  const cat=new THREE.Group();scene.add(cat);
-  function add(geo,mat,p,sc,ro){
-    const m=new THREE.Mesh(geo,mat);
-    if(p)m.position.set(...p);
-    if(sc)m.scale.set(...sc);
-    if(ro)m.rotation.set(...ro);
-    m.castShadow=true;m.receiveShadow=true;cat.add(m);return m;
+  /* --- Helpers --- */
+  var cat=new THREE.Group();scene.add(cat);
+
+  function mk(geo,mat,x,y,z,sx,sy,sz2,rx,ry,rz){
+    var m=new THREE.Mesh(geo,mat);
+    m.position.set(x||0,y||0,z||0);
+    m.scale.set(sx||1,sy||1,sz2||1);
+    m.rotation.set(rx||0,ry||0,rz||0);
+    m.castShadow=true;m.receiveShadow=true;
+    cat.add(m);return m;
   }
-  function seg(a,b,r,mat){
-    const va=new THREE.Vector3(...a),vb=new THREE.Vector3(...b);
-    const mid=new THREE.Vector3().addVectors(va,vb).multiplyScalar(.5);
-    const dir=new THREE.Vector3().subVectors(vb,va);
-    const len=dir.length();
-    const m=new THREE.Mesh(new THREE.CylinderGeometry(r*.88,r,len,12),mat);
+
+  function tube(x1,y1,z1,x2,y2,z2,r,mat){
+    var va=new THREE.Vector3(x1,y1,z1);
+    var vb=new THREE.Vector3(x2,y2,z2);
+    var dir=new THREE.Vector3().subVectors(vb,va);
+    var len=dir.length();
+    if(len<.001)return;
+    var m=new THREE.Mesh(new THREE.CylinderGeometry(r*.9,r,len,12),mat);
+    var mid=new THREE.Vector3().addVectors(va,vb).multiplyScalar(.5);
     m.position.copy(mid);
-    m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize());
+    var up=new THREE.Vector3(0,1,0);
+    var dn=dir.clone().normalize();
+    // eviter singularite
+    if(Math.abs(dn.dot(up))>.999){
+      m.rotation.set(dn.y<0?Math.PI:0,0,0);
+    } else {
+      m.quaternion.setFromUnitVectors(up,dn);
+    }
     m.castShadow=true;cat.add(m);
   }
 
-  /* ── CORPS — proportions réalistes (très allongé) ── */
-  add(new THREE.SphereGeometry(1,32,24),mFur,[0,.88,0],[1.0,.58,1.78]);
-  add(new THREE.SphereGeometry(.72,24,18),mBelly,[0,.7,.08],[.88,.46,1.45]);
-  // poitrine surlevée
-  add(new THREE.SphereGeometry(.7,24,18),mFur,[0,.92,.9],[.88,.76,.82]);
-  // croupe
-  add(new THREE.SphereGeometry(.66,24,18),mFur,[0,.83,-.88],[.9,.72,.8]);
+  /* --- CORPS (tres allonge) --- */
+  mk(new THREE.SphereGeometry(1,32,24),mFur,   0,.88,0,  1.0,.58,1.8);
+  mk(new THREE.SphereGeometry(.7,24,18),mBelly, 0,.68,.1, .88,.46,1.45);
+  mk(new THREE.SphereGeometry(.7,24,18),mFur,   0,.92,.9, .88,.76,.82);
+  mk(new THREE.SphereGeometry(.66,24,18),mFur,  0,.83,-.88,.9,.72,.8);
 
-  /* ── COU ── */
-  seg([0,.95,.65],[0,1.4,1.1],.3,mFur);
+  /* --- COU --- */
+  tube(0,.95,.65, 0,1.4,1.1, .3,mFur);
 
-  /* ── TÊTE ── */
-  const head=add(new THREE.SphereGeometry(.62,32,24),mFur,[0,1.6,1.22],[1.08,.95,1.0]);
-  [-1,1].forEach(s=>add(new THREE.SphereGeometry(.22,16,12),mFur,[s*.46,1.5,1.3],[1,.82,.74]));
-  add(new THREE.SphereGeometry(.25,20,16),mBelly,[0,1.47,1.54],[1.05,.72,.65]);
-  add(new THREE.SphereGeometry(.05,12,10),mNose,[0,1.56,1.7],[1.2,.7,1]);
-  // oreilles
-  [-1,1].forEach(s=>{
-    add(new THREE.ConeGeometry(.22,.46,4),mFur,[s*.34,2.04,1.08],[1,1,1],[.08,0,s*-.14]);
-    add(new THREE.ConeGeometry(.12,.27,4),mNose,[s*.34,2.04,1.1],[1,1,1],[.08,0,s*-.14]);
-  });
-  // yeux
-  [-1,1].forEach(s=>{
-    add(new THREE.SphereGeometry(.112,20,16),mEyeW,[s*.22,1.63,1.48]);
-    add(new THREE.SphereGeometry(.086,18,14),mIris,[s*.22,1.63,1.55]);
-    add(new THREE.SphereGeometry(.058,12,10),mPupil,[s*.22,1.63,1.59],[.28,1,1]);
-    add(new THREE.SphereGeometry(.115,18,14),mCorn,[s*.22,1.63,1.5]);
-    add(new THREE.SphereGeometry(.017,8,8),mEyeW,[s*.22+.022,1.67,1.62]);
-  });
-  // moustaches
-  [[-1,-.16,.04],[-1,0,0],[-1,.16,-.04],[1,.16,.04],[1,0,0],[1,-.16,-.04]]
-  .forEach(([s,rz,dy])=>{
-    add(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi,
-        [s*.46,1.49+dy,1.45],[1,1,1],[Math.PI/2,0,rz]);
-  });
+  /* --- TETE --- */
+  var head=mk(new THREE.SphereGeometry(.62,32,24),mFur, 0,1.6,1.22, 1.08,.95,1.0);
+  mk(new THREE.SphereGeometry(.22,16,12),mFur,  -.46,1.5,1.3, 1,.82,.74);
+  mk(new THREE.SphereGeometry(.22,16,12),mFur,   .46,1.5,1.3, 1,.82,.74);
+  mk(new THREE.SphereGeometry(.25,20,16),mBelly, 0,1.47,1.54, 1.05,.72,.65);
+  mk(new THREE.SphereGeometry(.05,12,10),mNose,  0,1.56,1.7,  1.2,.7,1);
 
-  /* ── PATTES — pose en marche ── */
-  // [haut, milieu, pied]
-  const pData=[
-    // Avant gauche — en avant, porte le poids
-    [[-.42,.86,.68],[-.42,.42,.9],[-.42,.03,1.04]],
-    // Avant droite — reculée
-    [[ .42,.9,.44],[ .42,.46,.2],[ .42,.03,.06]],
-    // Arrière gauche — reculée
-    [[-.4,.8,-.62],[-.4,.36,-.9],[-.4,.03,-1.06]],
-    // Arrière droite — avance
-    [[ .4,.83,-.47],[ .4,.4,-.2],[ .4,.03,-.06]],
-  ];
-  pData.forEach(([A,B,C])=>{
-    seg(A,B,.14,mFur);
-    seg(B,C,.11,mFur);
-    add(new THREE.SphereGeometry(.16,16,12),mFur,[C[0],C[1]+.07,C[2]],[1,.6,1.12]);
-    add(new THREE.SphereGeometry(.09,10,8),mPaw,[C[0],C[1]+.02,C[2]+.06],[.9,.35,.85]);
-    [-.055,0,.055].forEach(tx=>
-      add(new THREE.SphereGeometry(.04,8,8),mPaw,[C[0]+tx,C[1],C[2]+.1],[.9,.4,.8]));
-  });
+  /* --- OREILLES --- */
+  mk(new THREE.ConeGeometry(.22,.46,4),mFur,  -.34,2.04,1.08, 1,1,1, .08,0,-.14);
+  mk(new THREE.ConeGeometry(.12,.27,4),mNose, -.34,2.04,1.10, 1,1,1, .08,0,-.14);
+  mk(new THREE.ConeGeometry(.22,.46,4),mFur,   .34,2.04,1.08, 1,1,1, .08,0, .14);
+  mk(new THREE.ConeGeometry(.12,.27,4),mNose,  .34,2.04,1.10, 1,1,1, .08,0, .14);
 
-  /* ── QUEUE — anneauée, remonte vers le haut ── */
-  const qp=[
+  /* --- YEUX --- */
+  mk(new THREE.SphereGeometry(.112,20,16),mEyeW, -.22,1.63,1.48);
+  mk(new THREE.SphereGeometry(.086,18,14),mIris, -.22,1.63,1.55);
+  mk(new THREE.SphereGeometry(.058,12,10),mPupil,-.22,1.63,1.59, .28,1,1);
+  mk(new THREE.SphereGeometry(.115,18,14),mCorn, -.22,1.63,1.50);
+  mk(new THREE.SphereGeometry(.017,8,8), mEyeW, -.198,1.67,1.62);
+  mk(new THREE.SphereGeometry(.112,20,16),mEyeW, .22,1.63,1.48);
+  mk(new THREE.SphereGeometry(.086,18,14),mIris, .22,1.63,1.55);
+  mk(new THREE.SphereGeometry(.058,12,10),mPupil,.22,1.63,1.59, .28,1,1);
+  mk(new THREE.SphereGeometry(.115,18,14),mCorn, .22,1.63,1.50);
+  mk(new THREE.SphereGeometry(.017,8,8), mEyeW, .242,1.67,1.62);
+
+  /* --- MOUSTACHES --- */
+  mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi, -.46,1.49,.45+1, 1,1,1, Math.PI/2,0,-.16);
+  mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi, -.46,1.49,.00+1, 1,1,1, Math.PI/2,0,0);
+  mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi, -.46,1.45,-.04+1,1,1,1, Math.PI/2,0, .16);
+  mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi,  .46,1.49,.45+1, 1,1,1, Math.PI/2,0, .16);
+  mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi,  .46,1.49,.00+1, 1,1,1, Math.PI/2,0,0);
+  mk(new THREE.CylinderGeometry(.004,.003,.75,5),mWhi,  .46,1.45,-.04+1,1,1,1, Math.PI/2,0,-.16);
+
+  /* --- PATTES (pose marche) --- */
+  // Avant gauche - avancee
+  tube(-.42,.86,.68, -.42,.42,.90, .14,mFur);
+  tube(-.42,.42,.90, -.42,.03,1.04, .11,mFur);
+  mk(new THREE.SphereGeometry(.16,16,12),mFur, -.42,.10,1.06, 1,.6,1.1);
+  mk(new THREE.SphereGeometry(.09,10,8), mPaw, -.42,.04,1.12, .9,.35,.85);
+  mk(new THREE.SphereGeometry(.04,8,8),mPaw, -.475,.02,1.16, .9,.4,.8);
+  mk(new THREE.SphereGeometry(.04,8,8),mPaw, -.42,.02,1.17,  .9,.4,.8);
+  mk(new THREE.SphereGeometry(.04,8,8),mPaw, -.365,.02,1.16, .9,.4,.8);
+  // Avant droite - reculee
+  tube( .42,.90,.44,  .42,.46,.20, .14,mFur);
+  tube( .42,.46,.20,  .42,.03,.06, .11,mFur);
+  mk(new THREE.SphereGeometry(.16,16,12),mFur,  .42,.10,.04, 1,.6,1.1);
+  mk(new THREE.SphereGeometry(.09,10,8), mPaw,  .42,.04,-.02,.9,.35,.85);
+  mk(new THREE.SphereGeometry(.04,8,8),mPaw,  .475,.02,-.06,.9,.4,.8);
+  mk(new THREE.SphereGeometry(.04,8,8),mPaw,  .42,.02,-.07, .9,.4,.8);
+  mk(new THREE.SphereGeometry(.04,8,8),mPaw,  .365,.02,-.06,.9,.4,.8);
+  // Arriere gauche - reculee
+  tube(-.40,.80,-.62, -.40,.36,-.90, .14,mFur);
+  tube(-.40,.36,-.90, -.40,.03,-1.06,.11,mFur);
+  mk(new THREE.SphereGeometry(.16,16,12),mFur, -.40,.10,-1.08,1,.6,1.1);
+  mk(new THREE.SphereGeometry(.09,10,8), mPaw, -.40,.04,-1.14,.9,.35,.85);
+  mk(new THREE.SphereGeometry(.04,8,8),mPaw, -.455,.02,-1.18,.9,.4,.8);
+  mk(new THREE.SphereGeometry(.04,8,8),mPaw, -.40,.02,-1.19, .9,.4,.8);
+  mk(new THREE.SphereGeometry(.04,8,8),mPaw, -.345,.02,-1.18,.9,.4,.8);
+  // Arriere droite - avance
+  tube( .40,.83,-.47,  .40,.40,-.20, .14,mFur);
+  tube( .40,.40,-.20,  .40,.03,-.06, .11,mFur);
+  mk(new THREE.SphereGeometry(.16,16,12),mFur,  .40,.10,-.04,1,.6,1.1);
+  mk(new THREE.SphereGeometry(.09,10,8), mPaw,  .40,.04, .02,.9,.35,.85);
+  mk(new THREE.SphereGeometry(.04,8,8),mPaw,  .455,.02,-.02,.9,.4,.8);
+  mk(new THREE.SphereGeometry(.04,8,8),mPaw,  .40,.02,-.01, .9,.4,.8);
+  mk(new THREE.SphereGeometry(.04,8,8),mPaw,  .345,.02,-.02,.9,.4,.8);
+
+  /* --- QUEUE (spheres pour eviter crash) --- */
+  var qpts=[
     [0,.85,-1.0],[-.04,1.05,-1.32],[-.1,1.42,-1.56],
     [-.25,1.92,-1.66],[-.46,2.42,-1.52],[-.66,2.88,-1.22],
     [-.73,3.12,-.96],[-.62,3.32,-.78]
   ];
-  for(let i=0;i<qp.length-1;i++){
-    const r=.09-.009*i;
-    seg(qp[i],qp[i+1],r,i%2===0?mFur:mDark);
+  var qr=[.09,.085,.08,.075,.07,.065,.06,.09];
+  for(var i=0;i<qpts.length;i++){
+    var qm=i%2===0?mFur:mDark;
+    mk(new THREE.SphereGeometry(qr[i]||.07,12,10),qm,qpts[i][0],qpts[i][1],qpts[i][2]);
+    if(i>0)tube(qpts[i-1][0],qpts[i-1][1],qpts[i-1][2],qpts[i][0],qpts[i][1],qpts[i][2],(qr[i]+qr[i-1])/2,qm);
   }
-  add(new THREE.SphereGeometry(.09,12,10),mDark,[-.62,3.32,-.78]);
 
-  /* ── SOL ── */
-  const gnd=new THREE.Mesh(new THREE.CircleGeometry(12,48),mGnd);
+  /* --- SOL --- */
+  var gndMat=new THREE.MeshStandardMaterial({color:0x23233a,roughness:.98});
+  var gnd=new THREE.Mesh(new THREE.CircleGeometry(12,48),gndMat);
   gnd.rotation.x=-Math.PI/2;gnd.receiveShadow=true;scene.add(gnd);
-  scene.add(Object.assign(new THREE.GridHelper(24,24,0x252510,0x1e1e0c),{position:new THREE.Vector3(0,.005,0)}));
+  var grid=new THREE.GridHelper(24,24,0x2a2a45,0x222238);
+  grid.position.y=.005;scene.add(grid);
 
-  /* ── Contrôles ── */
-  let th=.5,ph=1.25,rd=11,tTh=.5,tPh=1.25,tRd=11;
+  /* --- ORBITE --- */
+  var th=.5,ph=1.25,rd=11,tTh=.5,tPh=1.25,tRd=11;
   function updateCam(){
     cam.position.set(rd*Math.sin(ph)*Math.sin(th),2.2+rd*Math.cos(ph),rd*Math.sin(ph)*Math.cos(th));
     cam.lookAt(0,1.2,0);
   }updateCam();
-  const cv=R.domElement;
-  let drag=false,lx=0,ly=0,ld=0;
-  cv.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY;});
-  window.addEventListener('mouseup',()=>drag=false);
-  window.addEventListener('mousemove',e=>{
+
+  var cv=R.domElement,drag=false,lx=0,ly=0,ld=0;
+  cv.addEventListener('mousedown',function(e){drag=true;lx=e.clientX;ly=e.clientY;});
+  window.addEventListener('mouseup',function(){drag=false;});
+  window.addEventListener('mousemove',function(e){
     if(!drag)return;
     tTh-=(e.clientX-lx)*.008;tPh=Math.max(.1,Math.min(Math.PI-.1,tPh-(e.clientY-ly)*.008));
     lx=e.clientX;ly=e.clientY;
   });
-  cv.addEventListener('wheel',e=>{tRd=Math.max(4,Math.min(20,tRd+e.deltaY*.015));},{passive:true});
-  cv.addEventListener('touchstart',e=>{
+  cv.addEventListener('wheel',function(e){tRd=Math.max(4,Math.min(20,tRd+e.deltaY*.015));},{passive:true});
+  cv.addEventListener('touchstart',function(e){
     e.preventDefault();
     if(e.touches.length===1){drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;}
     if(e.touches.length===2)ld=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
   },{passive:false});
-  cv.addEventListener('touchmove',e=>{
+  cv.addEventListener('touchmove',function(e){
     e.preventDefault();
     if(e.touches.length===1&&drag){
       tTh-=(e.touches[0].clientX-lx)*.008;
@@ -241,17 +277,17 @@
       lx=e.touches[0].clientX;ly=e.touches[0].clientY;
     }
     if(e.touches.length===2){
-      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      var d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
       tRd=Math.max(4,Math.min(20,tRd-(d-ld)*.05));ld=d;
     }
   },{passive:false});
-  cv.addEventListener('touchend',()=>drag=false);
+  cv.addEventListener('touchend',function(){drag=false;});
 
-  /* ── Animation ── */
-  const clock=new THREE.Clock();
+  /* --- ANIMATION --- */
+  var clock=new THREE.Clock();
   (function loop(){
     requestAnimationFrame(loop);
-    const t=clock.getElapsedTime(),k=.1;
+    var t=clock.getElapsedTime(),k=.1;
     th+=(tTh-th)*k;ph+=(tPh-ph)*k;rd+=(tRd-rd)*k;
     updateCam();
     cat.position.y=Math.sin(t*1.2)*.03;
@@ -259,7 +295,7 @@
     R.render(scene,cam);
   })();
 
-  window.addEventListener('resize',()=>{
+  window.addEventListener('resize',function(){
     cam.aspect=innerWidth/innerHeight;
     cam.updateProjectionMatrix();
     R.setSize(innerWidth,innerHeight);
